@@ -1,0 +1,1 @@
+{"question":"What information is available in the uploaded documents?","ground_truth":"The answer should be grounded in the uploaded documents.","contexts":["Upload documents before running evaluation."],"answer":"I don't know based on the provided documents."}

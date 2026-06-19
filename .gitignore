@@ -1,0 +1,42 @@
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+backend/.env
+frontend/.env.local
+
+# Node
+frontend/node_modules/
+
+# Database
+*.db
+
+# Uploads
+backend/data/
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+# Next.js build files
+frontend/.next/
+
+# Node modules
+frontend/node_modules/
+
+# Python virtual environment
+backend/.venv/
+
+# Environment files
+.env
+backend/.env
+frontend/.env.local
+
+# Database & uploads
+backend/data/
+*.db
