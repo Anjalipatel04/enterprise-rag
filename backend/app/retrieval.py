@@ -22,7 +22,7 @@ class HybridRetriever:
         self.reranker = CrossEncoder(settings.reranker_model)
 
     def retrieve(self, question: str, top_k: int) -> list[RetrievedChunk]:
-        candidate_limit = max(top_k * 5, 20)
+        candidate_limit = max(top_k * 10, 50)
         query_vector = embed_texts([question])[0]
         dense_hits = self.vectors.search(query_vector, candidate_limit)
         dense_rank = {chunk_id: (rank, score) for rank, (chunk_id, score) in enumerate(dense_hits, start=1)}
@@ -67,5 +67,31 @@ class HybridRetriever:
             )
             for item, score in zip(rerank_candidates, rerank_scores, strict=True)
         ]
+        ...
         reranked.sort(key=lambda item: item.rerank_score, reverse=True)
-        return reranked[:top_k]
+
+        seen = set()
+        unique = []
+
+        for item in reranked:
+            if item.chunk.id not in seen:
+                unique.append(item)
+                seen.add(item.chunk.id)
+
+        print("\n===== TOP RETRIEVED =====")
+
+        for i, item in enumerate(unique[:top_k], start=1):
+            print(f"\nRank {i}")
+            print("Score:", item.rerank_score)
+            print(item.chunk.text[:300])
+
+        print("\n===== END RETRIEVED =====")
+
+        print("\n===== ALL CHUNKS IN DB =====")
+
+        for chunk in self.store.all_chunks():
+            if "HR Attrition" in chunk.text:
+                print(chunk.text[:1000])
+
+        print("\n===== END DB CHECK =====")
+        return unique[:top_k]

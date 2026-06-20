@@ -45,45 +45,83 @@ async def upload(
     chunk_size: int = Form(default=settings.default_chunk_size),
     chunk_overlap: int = Form(default=settings.default_chunk_overlap),
 ) -> list[UploadResponse]:
+
     if chunk_size < 200 or chunk_size > 3000:
         raise HTTPException(status_code=422, detail="chunk_size must be between 200 and 3000")
+
     if chunk_overlap < 0 or chunk_overlap >= chunk_size:
-        raise HTTPException(status_code=422, detail="chunk_overlap must be non-negative and smaller than chunk_size")
+        raise HTTPException(
+            status_code=422,
+            detail="chunk_overlap must be non-negative and smaller than chunk_size",
+        )
 
     parser = get_parser()
     store = get_chunk_store()
     vector_store = get_vector_store()
+
     responses: list[UploadResponse] = []
 
     for file in files:
         suffix = Path(file.filename or "").suffix.lower()
+
         if suffix not in SUPPORTED_EXTENSIONS:
-            raise HTTPException(status_code=415, detail=f"Unsupported file type: {suffix}")
+            raise HTTPException(
+                status_code=415,
+                detail=f"Unsupported file type: {suffix}",
+            )
 
         content = await file.read()
+
         if len(content) > settings.max_upload_mb * 1024 * 1024:
-            raise HTTPException(status_code=413, detail=f"{file.filename} exceeds {settings.max_upload_mb}MB")
+            raise HTTPException(
+                status_code=413,
+                detail=f"{file.filename} exceeds {settings.max_upload_mb}MB",
+            )
 
         document_id = str(uuid4())
+
         stored_path = settings.storage_dir / f"{document_id}{suffix}"
         stored_path.write_bytes(content)
 
         sections = parser.parse(stored_path)
-        chunks = SemanticChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap).chunk(
+
+        chunks = SemanticChunker(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+        ).chunk(
             sections=sections,
             filename=file.filename or stored_path.name,
             document_id=document_id,
         )
+
         if not chunks:
-            raise HTTPException(status_code=422, detail=f"No extractable content found in {file.filename}")
+            raise HTTPException(
+                status_code=422,
+                detail=f"No extractable content found in {file.filename}",
+            )
 
         vectors = embed_texts([chunk.text for chunk in chunks])
+
+        print("\n===== ALL GENERATED CHUNKS =====")
+
+        for i, chunk in enumerate(chunks, start=1):
+            print(f"\nCHUNK {i}")
+            print(chunk.text[:800])
+
+        print("\n===== END GENERATED CHUNKS =====")
+
         vector_store.upsert(chunks, vectors)
         store.upsert_chunks(chunks)
-        responses.append(UploadResponse(document_id=document_id, filename=file.filename or stored_path.name, chunks_indexed=len(chunks)))
+
+        responses.append(
+            UploadResponse(
+                document_id=document_id,
+                filename=file.filename or stored_path.name,
+                chunks_indexed=len(chunks),
+            )
+        )
 
     return responses
-
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
@@ -96,7 +134,10 @@ def chat(request: ChatRequest) -> ChatResponse:
         )
 
     threshold = request.similarity_threshold if request.similarity_threshold is not None else settings.similarity_threshold
-    retrieved = get_retriever().retrieve(request.question, request.top_k)
+    retrieved = get_retriever().retrieve(
+    request.question,
+    max(request.top_k, 10)
+    )
     if not passes_similarity_threshold(retrieved, threshold):
         return ChatResponse(
             answer="I don't know based on the provided documents.",

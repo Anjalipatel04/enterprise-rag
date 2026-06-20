@@ -13,12 +13,37 @@ class DocumentParser:
         self.converter = DocumentConverter()
 
     def parse(self, path: Path) -> list[ParsedSection]:
-        if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
-            raise ValueError(f"Unsupported file type: {path.suffix}")
+        try:
+            import fitz
 
+            doc = fitz.open(str(path))
+            text = ""
+
+            for page in doc:
+                text += page.get_text()
+
+        # If enough text was extracted, use PyMuPDF
+            if len(text.strip()) > 200:
+                print("\n===== PDF TEXT =====")
+                print(text[:2000])
+                print("===== END PDF TEXT =====\n")
+
+                return [
+                    ParsedSection(
+                        text=text,
+                        heading="Document",
+                        page=None
+                    )
+                ]
+
+        except Exception:
+            pass
+
+    # Fallback to Docling only if PDF appears scanned
         result = self.converter.convert(str(path))
         document = result.document
         markdown = document.export_to_markdown()
+
         return self._sections_from_markdown(markdown)
 
     @staticmethod

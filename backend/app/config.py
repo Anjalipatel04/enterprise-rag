@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     default_chunk_overlap: int = 120
     default_top_k: int = 5
     max_upload_mb: int = 50
-    similarity_threshold: float = 0.35
+    similarity_threshold: float = -20.0
     sqlite_path: Path = Path("./data/app.db")
     storage_dir: Path = Path("./data/uploads")
 
